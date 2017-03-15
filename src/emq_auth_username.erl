@@ -127,18 +127,16 @@ init(Userlist) ->
     emqttd_ctl:register_cmd(users, {?MODULE, cli}, []),
     {ok, undefined}.
 
-check(#mqtt_client{username = undefined}, _Password, _Opts) ->
-    {error, username_undefined};
-check(_User, undefined, _Opts) ->
-    {error, password_undefined};
+check(#mqtt_client{username = undefined}, _Password, _Opts) -> ignore;
+check(_User, undefined, _Opts) -> ignore;
 check(#mqtt_client{username = Username}, Password, _Opts) ->
     case mnesia:dirty_read(?AUTH_USERNAME_TAB, Username) of
         [] ->
-            {error, username_not_found};
+            ignore;
         [#?AUTH_USERNAME_TAB{password = <<Salt:4/binary, Hash/binary>>}] ->
             case Hash =:= md5_hash(Salt, Password) of
                 true -> ok;
-                false -> {error, password_error}
+                false -> ignore
             end
     end.
 
