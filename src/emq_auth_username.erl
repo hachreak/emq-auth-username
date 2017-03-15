@@ -27,14 +27,14 @@
 
 -export([is_enabled/0]).
 
--export([add_user/2, remove_user/1, lookup_user/1, all_users/0]).
+-export([add_user/3, remove_user/1, lookup_user/1, all_users/0]).
 
 %% emqttd_auth callbacks
 -export([init/1, check/3, description/0]).
 
 -define(AUTH_USERNAME_TAB, mqtt_auth_username).
 
--record(?AUTH_USERNAME_TAB, {username, password}).
+-record(?AUTH_USERNAME_TAB, {username, password, topic}).
 
 %%--------------------------------------------------------------------
 %% CLI
@@ -46,9 +46,11 @@ cli(["list"]) ->
         [?PRINT("~s~n", [Username]) || Username <- Usernames]
     end);
 
-cli(["add", Username, Password]) ->
+cli(["add", Username, Password, Topic]) ->
     if_enabled(fun() ->
-        ?PRINT("~p~n", [add_user(iolist_to_binary(Username), iolist_to_binary(Password))])
+        Ret = add_user(iolist_to_binary(Username), iolist_to_binary(Password),
+                       iolist_to_binary(Topic)),
+        ?PRINT("~p~n", [Ret])
     end);
 
 cli(["del", Username]) ->
@@ -58,7 +60,7 @@ cli(["del", Username]) ->
 
 cli(_) ->
     ?USAGE([{"users list", "List users"},
-            {"users add <Username> <Password>", "Add User"},
+            {"users add <Username> <Password> <Topic>", "Add User"},
             {"users del <Username>", "Delete User"}]).
 
 if_enabled(Fun) ->
@@ -68,7 +70,8 @@ if_enabled(Fun) ->
     end.
 
 hint() ->
-    ?PRINT_MSG("Please './bin/emqttd_ctl plugins load emq_auth_username' first.~n").
+  ?PRINT_MSG(
+    "Please './bin/emqttd_ctl plugins load emq_auth_username' first.~n").
 
 %%--------------------------------------------------------------------
 %% API
@@ -78,9 +81,10 @@ is_enabled() ->
     lists:member(?AUTH_USERNAME_TAB, mnesia:system_info(tables)).
 
 %% @doc Add User
--spec(add_user(binary(), binary()) -> ok | {error, any()}).
-add_user(Username, Password) ->
-    User = #?AUTH_USERNAME_TAB{username = Username, password = hash(Password)},
+-spec(add_user(binary(), binary(), binary()) -> ok | {error, any()}).
+add_user(Username, Password, Topic) ->
+    User = #?AUTH_USERNAME_TAB{
+        username = Username, password = hash(Password), topic = Topic},
     ret(mnesia:transaction(fun insert_user/1, [User])).
 
 insert_user(User = #?AUTH_USERNAME_TAB{username = Username}) ->
@@ -89,11 +93,12 @@ insert_user(User = #?AUTH_USERNAME_TAB{username = Username}) ->
         [_|_] -> mnesia:abort(existed)
     end.
 
-add_default_user(Username, Password) when is_atom(Username) ->
-    add_default_user(atom_to_list(Username), Password);
+add_default_user(Username, Password, Topic) when is_atom(Username) ->
+    add_default_user(atom_to_list(Username), Password, Topic);
 
-add_default_user(Username, Password) ->
-    add_user(iolist_to_binary(Username), iolist_to_binary(Password)).
+add_default_user(Username, Password, Topic) ->
+    add_user(iolist_to_binary(Username), iolist_to_binary(Password),
+             iolist_to_binary(Topic)).
 
 %% @doc Lookup user by username
 -spec(lookup_user(binary()) -> list()).
@@ -103,7 +108,8 @@ lookup_user(Username) ->
 %% @doc Remove user
 -spec(remove_user(binary()) -> ok | {error, any()}).
 remove_user(Username) ->
-    ret(mnesia:transaction(fun mnesia:delete/1, [{?AUTH_USERNAME_TAB, Username}])).
+    ret(mnesia:transaction(
+          fun mnesia:delete/1, [{?AUTH_USERNAME_TAB, Username}])).
 
 ret({atomic, ok})     -> ok;
 ret({aborted, Error}) -> {error, Error}.
@@ -121,8 +127,8 @@ init(Userlist) ->
             {disc_copies, [node()]},
             {attributes, record_info(fields, ?AUTH_USERNAME_TAB)}]),
     ok = emqttd_mnesia:copy_table(?AUTH_USERNAME_TAB, disc_copies),
-    lists:foreach(fun({Username, Password}) ->
-                      add_default_user(Username, Password)
+    lists:foreach(fun({Username, Password, Topic}) ->
+                      add_default_user(Username, Password, Topic)
                   end, Userlist),
     emqttd_ctl:register_cmd(users, {?MODULE, cli}, []),
     {ok, undefined}.
@@ -141,7 +147,7 @@ check(#mqtt_client{username = Username}, Password, _Opts) ->
     end.
 
 description() ->
-    "Username password authentication module".
+    "Username password authenticationi to a topic module".
 
 %%--------------------------------------------------------------------
 %% Internal functions
