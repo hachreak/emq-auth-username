@@ -11,3 +11,6 @@ rel/example_project
 .erlang.mk/
 emq_auth_username.d
 data/
+compile_commands.json
+_build
+rebar.lock
