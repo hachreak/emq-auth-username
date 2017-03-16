@@ -40,8 +40,13 @@
 
 cli(["list"]) ->
     if_enabled(fun() ->
-        Usernames = mnesia:dirty_all_keys(?AUTH_USERNAME_TAB),
-        [?PRINT("~s~n", [Username]) || Username <- Usernames]
+        mnesia:activity(sync_dirty, fun() ->
+            mnesia:foldl(fun(#?AUTH_USERNAME_TAB{username = Username,
+                                                 topic = Topic}, Acc) ->
+                ?PRINT("~s\t~s~n", [Username, Topic]),
+                Acc
+              end, [], ?AUTH_USERNAME_TAB)
+          end)
     end);
 
 cli(["add", Username, Password, Topic]) ->
