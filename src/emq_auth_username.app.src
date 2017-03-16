@@ -1,0 +1,17 @@
+{application, emq_auth_username,
+ [{description, "A EMQ plugin to support access to specific topic from static users."},
+  {vsn, "0.0.0"},
+  {registered, []},
+  {applications,
+   [kernel,
+    stdlib,
+    jsx
+   ]},
+  {env,[]},
+  {modules, []},
+  {mod, {emq_auth_username_app, []}},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.

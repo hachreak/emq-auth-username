@@ -1,8 +1,6 @@
 %%--------------------------------------------------------------------
 %% Copyright 2017 Leonardo Rossi <leonardo.rossi@studenti.unipr.it>
 %%
-%% Copyright (c) 2013-2017 EMQ Enterprise, Inc. (http://emqtt.io)
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,32 +14,41 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
--module(emq_auth_username_app).
+-module(emq_acl_username).
 
--behaviour(application).
+-author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--export([start/2, stop/1]).
+-include_lib("emqttd/include/emqttd.hrl").
+-include_lib("emq_auth_username/include/emq_auth_username.hrl").
 
--behaviour(supervisor).
+-behaviour(emqttd_acl_mod).
 
--export([init/1]).
+-export([init/1, check_acl/2, reload_acl/1, description/0]).
 
--define(APP, emq_auth_username).
--define(ACL, emq_acl_username).
+-type appctx() :: map().
+-type topic()  :: binary().
 
-start(_Type, _Args) ->
-    Userlist = application:get_env(?APP, userlist, []),
-    emqttd_access_control:register_mod(auth, ?APP, Userlist),
-    emqttd_access_control:register_mod(acl, ?ACL, []),
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
-
-stop(_State) ->
-    emqttd_access_control:unregister_mod(auth, ?APP).
 
 %%--------------------------------------------------------------------
-%% Dummy Supervisor
+%% ACL callbacks
 %%--------------------------------------------------------------------
 
-init([]) ->
-    {ok, { {one_for_all, 1, 10}, []} }.
+-spec init(appctx()) -> {ok, appctx()}.
+init(_) -> {ok, #{}}.
 
+-spec check_acl({mqtt_client(), pubsub(), topic()}, appctx()) ->
+  allow | deny | ignore.
+check_acl({#mqtt_client{username = Username}, _PubSub, Topic}, _) ->
+  case mnesia:dirty_read(?AUTH_USERNAME_TAB, Username) of
+    [] -> ignore;
+    [#?AUTH_USERNAME_TAB{topic = Topic}] -> allow;
+    _Rest -> ignore
+  end.
+
+-spec reload_acl(appctx()) -> ok | {error, appctx()}.
+reload_acl(_AppCtx) ->
+  ok.
+
+-spec description() -> string().
+description() ->
+  "ACL module to handle JOINS by Esenshub".

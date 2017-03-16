@@ -1,4 +1,6 @@
 %%--------------------------------------------------------------------
+%% Copyright 2017 Leonardo Rossi <leonardo.rossi@studenti.unipr.it>
+%%
 %% Copyright (c) 2013-2017 EMQ Enterprise, Inc. (http://emqtt.io)
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +19,8 @@
 -module(emq_auth_username).
 
 -include_lib("emqttd/include/emqttd.hrl").
-
 -include_lib("emqttd/include/emqttd_cli.hrl").
+-include_lib("emq_auth_username/include/emq_auth_username.hrl").
 
 %% CLI callbacks
 -export([cli/1]).
@@ -31,10 +33,6 @@
 
 %% emqttd_auth callbacks
 -export([init/1, check/3, description/0]).
-
--define(AUTH_USERNAME_TAB, mqtt_auth_username).
-
--record(?AUTH_USERNAME_TAB, {username, password, topic}).
 
 %%--------------------------------------------------------------------
 %% CLI
